@@ -19,6 +19,7 @@
 
 #include <io/state.h>
 #include <kernel/state.h>
+#include <np/account.h>
 #include <np/common.h>
 #include <util/fs.h>
 #include <util/hash.h>
@@ -92,7 +93,7 @@ static std::string np_online_id(EmuEnvState &emuenv) {
     return id;
 }
 
-static std::vector<uint8_t> make_np_ticket(const std::string &online_id, const std::string &service_id) {
+static std::vector<uint8_t> make_np_ticket(const std::string &online_id, const std::string &service_id, uint64_t cfg_user_id = 0, const std::string &region = "us") {
     std::vector<uint8_t> t(NP_TICKET_SIZE, 0);
     size_t pos = 0;
     const auto u16 = [&](uint16_t v) {
@@ -114,6 +115,8 @@ static std::vector<uint8_t> make_np_ticket(const std::string &online_id, const s
     uint64_t user_id = 0xCBF29CE484222325ull;
     for (const char c : online_id)
         user_id = (user_id ^ static_cast<uint8_t>(c)) * 0x100000001B3ull;
+    if (cfg_user_id)
+        user_id = cfg_user_id;
     const uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     t[pos++] = 0x31;
@@ -143,7 +146,7 @@ static std::vector<uint8_t> make_np_ticket(const std::string &online_id, const s
     str(online_id, 32);
     u16(0x0008);
     u16(4);
-    str("us", 4);
+    str(region, 4);
     u16(0x0004);
     u16(4);
     str("un", 4);
@@ -161,6 +164,14 @@ static std::vector<uint8_t> make_np_ticket(const std::string &online_id, const s
     u16(0x0008);
     u16(static_cast<uint16_t>(NP_TICKET_SIZE - pos - 2));
     return t;
+}
+
+static std::vector<uint8_t> np_ticket_for(EmuEnvState &emuenv) {
+    if (!emuenv.cfg.np_online_id.empty()) {
+        const auto acc = np::account::resolve_account(emuenv.cfg.np_online_id, emuenv.cfg.np_user_id, emuenv.cfg.np_region, "");
+        return make_np_ticket(acc.online_id, np_auth_service_id, acc.user_id, acc.region);
+    }
+    return make_np_ticket(np_online_id(emuenv), np_auth_service_id);
 }
 
 EXPORT(int, sceNpAuthCreateStartRequest, const SceNpAuthRequestParameter *param) {
@@ -195,10 +206,10 @@ EXPORT(int, sceNpAuthGetEntitlementIdList) {
 
 EXPORT(int, sceNpAuthGetTicket, int id, void *buf, SceSize len) {
     TRACY_FUNC(sceNpAuthGetTicket, id, buf, len);
-    const std::vector<uint8_t> ticket = make_np_ticket(np_online_id(emuenv), np_auth_service_id);
+    const std::vector<uint8_t> ticket = np_ticket_for(emuenv);
     if (buf)
         memcpy(buf, ticket.data(), std::min<size_t>(len, ticket.size()));
-    return 0;
+    return static_cast<int>(ticket.size());
 }
 
 EXPORT(int, sceNpAuthGetTicketParam) {
