@@ -168,12 +168,7 @@ EXPORT(int, sceNetConnect, int sid, const SceNetSockaddr *addr, unsigned int add
     TRACY_FUNC(sceNetConnect, sid, addr, addrlen);
     auto sock = lock_and_find(sid, emuenv.net.socks, emuenv.kernel.mutex);
 
-    const int conn_r = sock ? sock->connect(addr, addrlen) : SCE_NET_ERROR_EBADF;
-    if (addr && addrlen >= 8) {
-        const uint8_t *b = reinterpret_cast<const uint8_t *>(addr);
-        LOG_INFO("NETLOG connect sid={} {}.{}.{}.{}:{} -> {:#x}", sid, b[4], b[5], b[6], b[7], (b[2] << 8) | b[3], static_cast<unsigned>(conn_r));
-    }
-    RET_NET_ERRNO(conn_r);
+    RET_NET_ERRNO(sock ? sock->connect(addr, addrlen) : SCE_NET_ERROR_EBADF);
 }
 
 EXPORT(int, sceNetDumpAbort) {
@@ -213,7 +208,6 @@ EXPORT(int, sceNetEpollAbort) {
 
 EXPORT(int, sceNetEpollControl, int eid, SceNetEpollControlFlag op, int id, SceNetEpollEvent *ev) {
     TRACY_FUNC(sceNetEpollControl, eid, op, id, ev);
-    LOG_INFO("NETLOG epollctl eid={} op={} id={}", eid, static_cast<int>(op), id);
     auto epoll = lock_and_find(eid, emuenv.net.epolls, emuenv.kernel.mutex);
     if (!epoll)
         RET_NET_ERRNO(SCE_NET_ERROR_EBADF);
@@ -257,11 +251,7 @@ EXPORT(int, sceNetEpollWait, int eid, SceNetEpollEvent *events, int maxevents, i
     TRACY_FUNC(sceNetEpollWait, eid, events, maxevents, timeout);
     auto epoll = lock_and_find(eid, emuenv.net.epolls, emuenv.kernel.mutex);
 
-    const int wait_r = epoll ? epoll->wait(events, maxevents, timeout) : SCE_NET_ERROR_EBADF;
-    static int wait_log = 0;
-    if (wait_log++ < 200)
-        LOG_INFO("NETLOG epollwait eid={} max={} timeout={} -> {}", eid, maxevents, timeout, wait_r);
-    RET_NET_ERRNO(wait_r);
+    RET_NET_ERRNO(epoll ? epoll->wait(events, maxevents, timeout) : SCE_NET_ERROR_EBADF);
 }
 
 EXPORT(int, sceNetEpollWaitCB) {
@@ -430,12 +420,7 @@ EXPORT(int, sceNetGetsockopt, int sid, int level, int optname, void *optval, uns
     TRACY_FUNC(sceNetGetsockopt, sid, level, optname, optval, optlen);
     auto sock = lock_and_find(sid, emuenv.net.socks, emuenv.kernel.mutex);
 
-    const int opt_r = sock ? sock->get_socket_options(level, optname, optval, optlen) : SCE_NET_ERROR_EBADF;
-    int opt_val = -1;
-    if (optval && optlen && *optlen >= 4)
-        memcpy(&opt_val, optval, 4);
-    LOG_INFO("NETLOG getsockopt sid={} level={:#x} opt={:#x} -> {:#x} val={}", sid, level, optname, static_cast<unsigned>(opt_r), opt_val);
-    RET_NET_ERRNO(opt_r);
+    RET_NET_ERRNO(sock ? sock->get_socket_options(level, optname, optval, optlen) : SCE_NET_ERROR_EBADF);
 }
 
 EXPORT(SceUInt32, sceNetHtonl, SceUInt32 n) {
@@ -578,7 +563,6 @@ EXPORT(int, sceNetResolverStartAton, int rid, const SceNetInAddr *addr, char *ho
 EXPORT(int, sceNetResolverStartNtoa, int rid, const char *hostname, SceNetInAddr *addr, int timeout, int retry, int flags) {
     TRACY_FUNC(sceNetResolverStartNtoa, rid, hostname, addr, timeout, retry, flags);
     struct hostent *resolved = gethostbyname(hostname);
-    LOG_INFO("NETLOG resolve '{}' -> {}", hostname ? hostname : "(null)", resolved ? "ok" : "FAILED");
     if (resolved == nullptr) {
         memset(addr, 0, sizeof(*addr));
         RET_NET_ERRNO(SCE_NET_ERROR_EHOSTUNREACH);
@@ -591,11 +575,7 @@ EXPORT(int, sceNetSend, int sid, const void *msg, unsigned int len, int flags) {
     TRACY_FUNC(sceNetSend, sid, msg, len, flags);
     auto sock = lock_and_find(sid, emuenv.net.socks, emuenv.kernel.mutex);
 
-    const int send_r = sock ? sock->send_packet(msg, len, flags, nullptr, 0) : SCE_NET_ERROR_EBADF;
-    static int send_log = 0;
-    if (send_log++ < 200)
-        LOG_INFO("NETLOG send sid={} len={} flags={:#x} -> {:#x}", sid, len, flags, static_cast<unsigned>(send_r));
-    RET_NET_ERRNO(send_r);
+    RET_NET_ERRNO(sock ? sock->send_packet(msg, len, flags, nullptr, 0) : SCE_NET_ERROR_EBADF);
 }
 
 EXPORT(int, sceNetSendmsg, int sid, const SceNetMsghdr *msg, int flags) {
