@@ -506,6 +506,14 @@
     <string name="settings_network_timeout_retry">Timeout and Retry</string>
     <string name="settings_network_psn_signed_in">PSN Signed In</string>
     <string name="settings_network_psn_signed_in_desc">Pretend to be signed in to PlayStation Network (but offline).</string>
+    <string name="settings_network_psn_account">Fake PSN account</string>
+    <string name="settings_network_psn_account_desc">Offline account like RPCN accounts in RPCS3. The game sees this online ID and a locally generated account ID in the NP ticket. No Sony server is contacted. Leave empty to use the Vita3K user name.</string>
+    <string name="settings_network_psn_online_id">Online ID</string>
+    <string name="settings_network_psn_online_id_hint">3-16 characters: letters, digits, - and _</string>
+    <string name="settings_network_psn_online_id_invalid">Online ID must be at least 3 characters</string>
+    <string name="settings_network_psn_account_id">Account ID: %1$s</string>
+    <string name="settings_network_psn_account_id_none">Account ID: none (using the Vita3K user name)</string>
+    <string name="settings_network_psn_generate">Generate new account</string>
     <string name="settings_network_http_enable">Enable HTTP Networking</string>
     <string name="settings_network_http_enable_desc">Enable HTTP networking support for apps that use it.</string>
     <string name="settings_network_http_timeout_attempts">Timeout Attempts</string>

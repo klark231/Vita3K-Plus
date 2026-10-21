@@ -22,6 +22,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.DocumentsContract
 import android.widget.Toast
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -1336,6 +1337,84 @@ private fun SystemSettingsSection(
     }
 }
 
+private const val NP_ONLINE_ID_MAX = 16
+private const val NP_ONLINE_ID_MIN = 3
+private val npRandom = java.security.SecureRandom()
+
+private fun generateNpOnlineId(): String =
+    "Vita3K_" + (0 until 6).joinToString("") { npRandom.nextInt(10).toString() }
+
+private fun generateNpUserId(): Long {
+    var id = 0L
+    while (id == 0L) id = npRandom.nextLong()
+    return id
+}
+
+private fun isNpIdChar(c: Char): Boolean =
+    c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '-' || c == '_'
+
+/** Fake offline PSN account (online ID + local account ID), shown in the global network settings. */
+@Composable
+private fun PsnAccountSettingsCard(
+    cfg: EmulatorConfig,
+    onUpdate: (EmulatorConfig.() -> Unit) -> Unit,
+    onShowHelp: (SettingsHelpEntry) -> Unit
+) {
+    SettingsSectionCard(
+        title = stringResource(R.string.settings_network_psn_account),
+        summary = stringResource(R.string.settings_network_psn_account_desc),
+        help = null,
+        onShowHelp = onShowHelp
+    ) {
+        val tooShort = cfg.npOnlineId.isNotEmpty() && cfg.npOnlineId.length < NP_ONLINE_ID_MIN
+        OutlinedTextField(
+            value = cfg.npOnlineId,
+            onValueChange = { raw ->
+                val filtered = raw.filter(::isNpIdChar).take(NP_ONLINE_ID_MAX)
+                // a different name is a different account
+                onUpdate {
+                    npOnlineId = filtered
+                    npUserId = if (filtered.isEmpty()) 0L else generateNpUserId()
+                }
+            },
+            label = { Text(stringResource(R.string.settings_network_psn_online_id)) },
+            supportingText = {
+                Text(
+                    stringResource(
+                        if (tooShort) R.string.settings_network_psn_online_id_invalid
+                        else R.string.settings_network_psn_online_id_hint
+                    )
+                )
+            },
+            isError = tooShort,
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        SettingsNote(
+            text = if (cfg.npOnlineId.isEmpty() || cfg.npUserId == 0L) {
+                stringResource(R.string.settings_network_psn_account_id_none)
+            } else {
+                stringResource(
+                    R.string.settings_network_psn_account_id,
+                    cfg.npUserId.toULong().toString(16).padStart(16, '0').uppercase()
+                )
+            }
+        )
+        FilledTonalButton(
+            onClick = {
+                onUpdate {
+                    npOnlineId = generateNpOnlineId()
+                    npUserId = generateNpUserId()
+                    psnSignedIn = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.settings_network_psn_generate))
+        }
+    }
+}
+
 @Composable
 private fun NetworkSettingsSection(
     cfg: EmulatorConfig,
@@ -1379,6 +1458,8 @@ private fun NetworkSettingsSection(
     }
 
     if (!isPerApp) {
+        PsnAccountSettingsCard(cfg = cfg, onUpdate = onUpdate, onShowHelp = onShowHelp)
+
         SettingsSectionCard(title = stringResource(R.string.settings_network_http_networking), summary = null, help = null, onShowHelp = onShowHelp) {
             SettingsSubsectionTitle(title = stringResource(R.string.settings_network_timeout_retry))
             SettingsToggleRow(

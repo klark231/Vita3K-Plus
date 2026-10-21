@@ -24,6 +24,7 @@
 #include <np/state.h>
 #include <util/log.h>
 
+#include <np/account.h>
 #include <np/functions.h>
 
 #include <util/tracy.h>
@@ -148,13 +149,15 @@ EXPORT(int, sceNpManagerGetContentRatingFlag, SceInt *isRestricted, SceInt *age)
 
 EXPORT(int, sceNpManagerGetNpId, np::SceNpId *id) {
     TRACY_FUNC(sceNpManagerGetNpId, id);
-    if (emuenv.io.user_name.length() > SCE_NP_ONLINEID_MAX_LENGTH) {
+    // Online ID comes from the fake PSN account (Settings > Network), falling back to the Vita3K user name
+    const auto account = np::account::resolve_account(emuenv.cfg.np_online_id, emuenv.cfg.np_user_id, emuenv.cfg.np_region, emuenv.io.user_name);
+    if (account.online_id.length() > SCE_NP_ONLINEID_MAX_LENGTH) {
         LOG_ERROR("Your online ID has over 16 characters, try again with shorter name");
         return SCE_NP_MANAGER_ERROR_ID_NOT_AVAIL;
     }
     // Fill the unused stuffs to 0 (prevent some weird things happen)
     memset(id, 0, sizeof(np::SceNpId));
-    strcpy(id->handle.data, emuenv.io.user_name.c_str());
+    strcpy(id->handle.data, account.online_id.c_str());
     id->isIdValid = true;
     id->opt.platformType[0] = 'p';
     id->opt.platformType[1] = 's';

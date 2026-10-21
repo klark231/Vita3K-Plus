@@ -66,6 +66,8 @@ class EmulatorConfig {
 
     // Network
     @JvmField var psnSignedIn: Boolean = false
+    @JvmField var npOnlineId: String = ""
+    @JvmField var npUserId: Long = 0L
     @JvmField var httpEnable: Boolean = true
     @JvmField var httpTimeoutAttempts: Int = 50
     @JvmField var httpTimeoutSleepMs: Int = 100
@@ -147,6 +149,8 @@ class EmulatorConfig {
         config.imeLangs = imeLangs
         config.userLang = userLang
         config.psnSignedIn = psnSignedIn
+        config.npOnlineId = npOnlineId
+        config.npUserId = npUserId
         config.httpEnable = httpEnable
         config.httpTimeoutAttempts = httpTimeoutAttempts
         config.httpTimeoutSleepMs = httpTimeoutSleepMs
@@ -228,6 +232,8 @@ class EmulatorConfig {
             imeLangs == other.imeLangs &&
             userLang == other.userLang &&
             psnSignedIn == other.psnSignedIn &&
+            npOnlineId == other.npOnlineId &&
+            npUserId == other.npUserId &&
             httpEnable == other.httpEnable &&
             httpTimeoutAttempts == other.httpTimeoutAttempts &&
             httpTimeoutSleepMs == other.httpTimeoutSleepMs &&
@@ -306,6 +312,8 @@ class EmulatorConfig {
         result = 31 * result + imeLangs.hashCode()
         result = 31 * result + userLang.hashCode()
         result = 31 * result + psnSignedIn.hashCode()
+        result = 31 * result + npOnlineId.hashCode()
+        result = 31 * result + npUserId.hashCode()
         result = 31 * result + httpEnable.hashCode()
         result = 31 * result + httpTimeoutAttempts
         result = 31 * result + httpTimeoutSleepMs

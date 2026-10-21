@@ -2765,6 +2765,40 @@ QGroupBox[flat=&quot;true&quot;]::title {
                      </property>
                     </widget>
                    </item>
+                   <item>
+                    <widget class="QLabel" name="label_np_online_id">
+                     <property name="text">
+                      <string>Online ID (offline fake account)</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLineEdit" name="np_online_id">
+                     <property name="maxLength">
+                      <number>16</number>
+                     </property>
+                     <property name="placeholderText">
+                      <string>3-16 characters: letters, digits, - and _</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="np_user_id_label">
+                     <property name="text">
+                      <string>Account ID: (none)</string>
+                     </property>
+                     <property name="textInteractionFlags">
+                      <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="np_generate_account">
+                     <property name="text">
+                      <string>Generate New Account</string>
+                     </property>
+                    </widget>
+                   </item>
                   </layout>
                  </widget>
                 </item>

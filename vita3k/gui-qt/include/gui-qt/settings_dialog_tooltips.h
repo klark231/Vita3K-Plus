@@ -90,6 +90,7 @@ public:
     QString custom_config;
     QString screenshot_format;
     QString psn_signed_in;
+    QString np_online_id;
     QString http_enable;
     QString http_timeout_attempts;
     QString http_timeout_sleep;

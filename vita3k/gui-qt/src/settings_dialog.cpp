@@ -31,6 +31,7 @@
 #include <gui-qt/settings_dialog_tooltips.h>
 #include <gui-qt/theme_manager.h>
 #include <io/state.h>
+#include <np/account.h>
 #include <kernel/state.h>
 #include <renderer/functions.h>
 #include <renderer/state.h>
@@ -54,6 +55,8 @@
 #include <QListWidgetItem>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QRadioButton>
 #include <QScreen>
 #include <QSlider>
@@ -540,6 +543,9 @@ void SettingsDialog::load_config() {
     }
 
     m_ui->psn_signed_in->setChecked(m_config.psn_signed_in);
+    m_ui->np_online_id->setText(QString::fromStdString(emuenv.cfg.np_online_id));
+    m_np_user_id = emuenv.cfg.np_user_id;
+    update_np_account_label();
     m_ui->http_enable->setChecked(emuenv.cfg.http_enable);
     m_ui->http_timeout_attempts->setValue(emuenv.cfg.http_timeout_attempts);
     m_ui->http_timeout_sleep->setValue(emuenv.cfg.http_timeout_sleep_ms);
@@ -704,6 +710,19 @@ void SettingsDialog::build_desired_config(Config &desired) const {
         current.ime_langs.push_back(0x00000004ULL); // English (US)
 
     current.psn_signed_in = m_ui->psn_signed_in->isChecked();
+    {
+        // Fake PSN account: keep the previous one if the typed online ID is not valid
+        const std::string online_id = m_ui->np_online_id->text().trimmed().toStdString();
+        if (online_id.empty()) {
+            desired.np_online_id.clear();
+            desired.np_user_id = 0;
+        } else if (np::account::is_valid_online_id(online_id)) {
+            desired.np_online_id = online_id;
+            desired.np_user_id = m_np_user_id ? m_np_user_id : np::account::generate_user_id();
+        } else {
+            LOG_WARN("Invalid PSN online ID '{}' (3-16 chars of A-Z, a-z, 0-9, - and _), keeping the previous one", online_id);
+        }
+    }
     desired.http_enable = m_ui->http_enable->isChecked();
     desired.http_timeout_attempts = m_ui->http_timeout_attempts->value();
     desired.http_timeout_sleep_ms = m_ui->http_timeout_sleep->value();
@@ -1030,6 +1049,21 @@ void SettingsDialog::setup_connections() {
     connect(m_ui->rb_modules_manual, &QRadioButton::toggled,
         this, &SettingsDialog::update_modules_list_enabled);
 
+    m_ui->np_online_id->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9_-]{0,16}"), this));
+    connect(m_ui->np_online_id, &QLineEdit::textEdited, this, [this] {
+        // a different name is a different account
+        m_np_user_id = 0;
+        update_np_account_label();
+        mark_dirty();
+    });
+    connect(m_ui->np_generate_account, &QPushButton::clicked, this, [this] {
+        m_ui->np_online_id->setText(QString::fromStdString(np::account::generate_online_id()));
+        m_np_user_id = np::account::generate_user_id();
+        m_ui->psn_signed_in->setChecked(true);
+        update_np_account_label();
+        mark_dirty();
+    });
+
     connect(m_ui->resolution_upscale, &QSlider::valueChanged,
         this, &SettingsDialog::update_resolution_label);
     connect(m_ui->resolution_upscale_reset, &QPushButton::clicked, this, [this] {
@@ -1297,6 +1331,8 @@ void SettingsDialog::setup_connections() {
         { m_ui->combo_stylesheets, tr("Stylesheet"), m_tooltips->gui_stylesheet },
         // Network
         { m_ui->psn_signed_in, tr("PSN Signed In"), m_tooltips->psn_signed_in },
+        { m_ui->np_online_id, tr("Online ID"), m_tooltips->np_online_id },
+        { m_ui->np_generate_account, tr("Generate New Account"), m_tooltips->np_online_id },
         { m_ui->http_enable, tr("Enable HTTP Networking"), m_tooltips->http_enable },
         { m_ui->label_timeout_attempts, tr("Timeout Attempts"), m_tooltips->http_timeout_attempts },
         { m_ui->http_timeout_attempts, tr("Timeout Attempts"), m_tooltips->http_timeout_attempts },
@@ -1443,6 +1479,15 @@ void SettingsDialog::reject() {
         return;
     }
     QDialog::reject();
+}
+
+void SettingsDialog::update_np_account_label() {
+    if (m_ui->np_online_id->text().isEmpty())
+        m_ui->np_user_id_label->setText(tr("Account ID: (none, using the Vita3K user name)"));
+    else if (m_np_user_id == 0)
+        m_ui->np_user_id_label->setText(tr("Account ID: will be generated when applied"));
+    else
+        m_ui->np_user_id_label->setText(tr("Account ID: %1").arg(QString::number(m_np_user_id, 16).rightJustified(16, '0').toUpper()));
 }
 
 void SettingsDialog::mark_dirty() {

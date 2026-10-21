@@ -2,12 +2,14 @@ add_library(np
     include/np/trophy/collection.h
     include/np/trophy/context.h
     include/np/trophy/trp_parser.h
+    include/np/account.h
     include/np/common.h
     include/np/functions.h
     include/np/state.h
     src/trophy/collection.cpp
     src/trophy/context.cpp
     src/trophy/trp_parser.cpp
+    src/account.cpp
     src/init.cpp
 )
 

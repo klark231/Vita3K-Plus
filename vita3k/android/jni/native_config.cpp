@@ -25,6 +25,7 @@
 #include <io/state.h>
 #include <kernel/state.h>
 #include <lang/state.h>
+#include <np/account.h>
 #include <renderer/functions.h>
 #include <renderer/state.h>
 #include <util/log.h>
@@ -87,6 +88,8 @@ struct EmulatorConfigFields {
     jfieldID imeLangs = nullptr;
     jfieldID userLang = nullptr;
     jfieldID psnSignedIn = nullptr;
+    jfieldID npOnlineId = nullptr;
+    jfieldID npUserId = nullptr;
     jfieldID httpEnable = nullptr;
     jfieldID httpTimeoutAttempts = nullptr;
     jfieldID httpTimeoutSleepMs = nullptr;
@@ -174,6 +177,8 @@ EmulatorConfigFields resolve_config_fields(JNIEnv *env) {
     fields.imeLangs = env->GetFieldID(fields.cls, "imeLangs", "J");
     fields.userLang = env->GetFieldID(fields.cls, "userLang", "Ljava/lang/String;");
     fields.psnSignedIn = env->GetFieldID(fields.cls, "psnSignedIn", "Z");
+    fields.npOnlineId = env->GetFieldID(fields.cls, "npOnlineId", "Ljava/lang/String;");
+    fields.npUserId = env->GetFieldID(fields.cls, "npUserId", "J");
     fields.httpEnable = env->GetFieldID(fields.cls, "httpEnable", "Z");
     fields.httpTimeoutAttempts = env->GetFieldID(fields.cls, "httpTimeoutAttempts", "I");
     fields.httpTimeoutSleepMs = env->GetFieldID(fields.cls, "httpTimeoutSleepMs", "I");
@@ -389,6 +394,12 @@ void fill_config_object(JNIEnv *env, jobject obj, const EmulatorConfigFields &fi
         env->DeleteLocalRef(value);
     }
     env->SetBooleanField(obj, fields.psnSignedIn, current_config.psn_signed_in);
+    {
+        jstring value = env->NewStringUTF(config.np_online_id.c_str());
+        env->SetObjectField(obj, fields.npOnlineId, value);
+        env->DeleteLocalRef(value);
+    }
+    env->SetLongField(obj, fields.npUserId, static_cast<jlong>(config.np_user_id));
     env->SetBooleanField(obj, fields.httpEnable, config.http_enable);
     env->SetIntField(obj, fields.httpTimeoutAttempts, static_cast<jint>(config.http_timeout_attempts));
     env->SetIntField(obj, fields.httpTimeoutSleepMs, static_cast<jint>(config.http_timeout_sleep_ms));
@@ -544,6 +555,25 @@ void read_config_object(JNIEnv *env, jobject obj, const EmulatorConfigFields &fi
         }
     }
     current_config.psn_signed_in = env->GetBooleanField(obj, fields.psnSignedIn) != JNI_FALSE;
+    {
+        // Fake PSN account: an invalid online ID keeps the previous account
+        auto *value = reinterpret_cast<jstring>(env->GetObjectField(obj, fields.npOnlineId));
+        std::string online_id;
+        if (value) {
+            online_id = jstring_to_string(env, value);
+            env->DeleteLocalRef(value);
+        }
+        if (online_id.empty()) {
+            config.np_online_id.clear();
+            config.np_user_id = 0;
+        } else if (np::account::is_valid_online_id(online_id)) {
+            uint64_t user_id = static_cast<uint64_t>(env->GetLongField(obj, fields.npUserId));
+            config.np_online_id = online_id;
+            config.np_user_id = user_id ? user_id : np::account::generate_user_id();
+        } else {
+            LOG_WARN("Invalid PSN online ID '{}', keeping the previous one", online_id);
+        }
+    }
     config.http_enable = env->GetBooleanField(obj, fields.httpEnable) != JNI_FALSE;
     config.http_timeout_attempts = static_cast<int>(env->GetIntField(obj, fields.httpTimeoutAttempts));
     config.http_timeout_sleep_ms = static_cast<int>(env->GetIntField(obj, fields.httpTimeoutSleepMs));

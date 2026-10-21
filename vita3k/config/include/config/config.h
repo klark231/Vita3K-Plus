@@ -218,6 +218,9 @@ using PhysicalKeyCode = input::PhysicalKeyCode;
     code(bool, "fps-hack", false, fps_hack)                                                             \
     code(uint64_t, "current-ime-lang", 4, current_ime_lang)                                             \
     code(int, "psn-signed-in", false, psn_signed_in)                                                    \
+    code(std::string, "np-online-id", std::string{}, np_online_id)                                      \
+    code(uint64_t, "np-user-id", 0, np_user_id)                                                         \
+    code(std::string, "np-region", "us", np_region)                                                     \
     code(bool, "http-enable", true, http_enable)                                                        \
     code(int, "http-timeout-attempts", 50, http_timeout_attempts)                                       \
     code(int, "http-timeout-sleep-ms", 100, http_timeout_sleep_ms)                                      \

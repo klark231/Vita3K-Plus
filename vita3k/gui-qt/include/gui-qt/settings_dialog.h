@@ -128,6 +128,8 @@ private:
     bool m_storage_path_switched = false;
     Config::CurrentConfig m_config;
     fs::path m_pending_vita_fs_path{};
+    uint64_t m_np_user_id = 0; // fake PSN account ID shown in the Network tab
+    void update_np_account_label();
     std::vector<config::RestartRequiredSetting> m_deferred_restart_settings;
     std::unique_ptr<Ui::vita3k_settings_dialog> m_ui;
     QString m_current_stylesheet;
