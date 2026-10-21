@@ -1,7 +1,7 @@
 name: Android APK (only)
 
 # Lightweight build for forks: Android only, no desktop matrix, no release step.
-# Builds a debug-signed (Reldebug) APK unless the KEYSTORE secrets are set.
+# Builds a Release APK (app id org.vita3k.emulator). Uses your KEYSTORE secrets if set, otherwise a generated key.
 on:
   workflow_dispatch:
   push:
@@ -54,12 +54,27 @@ jobs:
 
       - uses: hendrikmuhs/ccache-action@v1.2.23
 
-      - name: Decode Android keystore (optional)
+      - name: Prepare signing key (your secrets, or a generated one)
         env:
           KEYSTORE_ENCODED: ${{ secrets.KEYSTORE }}
+          S_STORE_PASS: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          S_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          S_KEY_PASS: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_ENCODED" ]; then
             echo "$KEYSTORE_ENCODED" | base64 --decode > /home/runner/keystore.jks
+            echo "SIGNING_STORE_PASSWORD=$S_STORE_PASS" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_ALIAS=$S_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_PASSWORD=$S_KEY_PASS" >> "$GITHUB_ENV"
+          else
+            # No secrets: generate a throwaway key so a real Release APK is built.
+            # NOTE: a new key every run means you must uninstall the old APK before updating.
+            keytool -genkeypair -v -keystore /home/runner/keystore.jks -storetype PKCS12 \
+              -alias vita3k -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass vita3kbuild -keypass vita3kbuild -dname "CN=Vita3K fork build"
+            echo "SIGNING_STORE_PASSWORD=vita3kbuild" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_ALIAS=vita3k" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_PASSWORD=vita3kbuild" >> "$GITHUB_ENV"
           fi
 
       - name: Compute artifact paths
@@ -68,12 +83,9 @@ jobs:
           echo "ARTIFACT_NAME=vita3k-$(git rev-parse --short HEAD)-android" >> "$GITHUB_ENV"
           echo "ARTIFACT_DIR=artifacts/vita3k-$(git rev-parse --short HEAD)-android" >> "$GITHUB_ENV"
 
-      - name: Build Android target
+      - name: Build Android target (Release)
         env:
           SIGNING_STORE_PATH: /home/runner/keystore.jks
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           VCPKG_ROOT: /usr/local/share/vcpkg
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: bash ./.ci/build-android.sh "${{ env.ARTIFACT_DIR }}"
