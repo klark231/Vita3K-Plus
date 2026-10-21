@@ -168,7 +168,12 @@ EXPORT(int, sceNetConnect, int sid, const SceNetSockaddr *addr, unsigned int add
     TRACY_FUNC(sceNetConnect, sid, addr, addrlen);
     auto sock = lock_and_find(sid, emuenv.net.socks, emuenv.kernel.mutex);
 
-    RET_NET_ERRNO(sock ? sock->connect(addr, addrlen) : SCE_NET_ERROR_EBADF);
+    const int conn_r = sock ? sock->connect(addr, addrlen) : SCE_NET_ERROR_EBADF;
+    if (addr && addrlen >= 8) {
+        const uint8_t *b = reinterpret_cast<const uint8_t *>(addr);
+        LOG_INFO("NETLOG connect sid={} {}.{}.{}.{}:{} -> {:#x}", sid, b[4], b[5], b[6], b[7], (b[2] << 8) | b[3], static_cast<unsigned>(conn_r));
+    }
+    RET_NET_ERRNO(conn_r);
 }
 
 EXPORT(int, sceNetDumpAbort) {
@@ -420,7 +425,12 @@ EXPORT(int, sceNetGetsockopt, int sid, int level, int optname, void *optval, uns
     TRACY_FUNC(sceNetGetsockopt, sid, level, optname, optval, optlen);
     auto sock = lock_and_find(sid, emuenv.net.socks, emuenv.kernel.mutex);
 
-    RET_NET_ERRNO(sock ? sock->get_socket_options(level, optname, optval, optlen) : SCE_NET_ERROR_EBADF);
+    const int opt_r = sock ? sock->get_socket_options(level, optname, optval, optlen) : SCE_NET_ERROR_EBADF;
+    int opt_val = -1;
+    if (optval && optlen && *optlen >= 4)
+        memcpy(&opt_val, optval, 4);
+    LOG_INFO("NETLOG getsockopt sid={} level={:#x} opt={:#x} -> {:#x} val={}", sid, level, optname, static_cast<unsigned>(opt_r), opt_val);
+    RET_NET_ERRNO(opt_r);
 }
 
 EXPORT(SceUInt32, sceNetHtonl, SceUInt32 n) {
@@ -563,6 +573,7 @@ EXPORT(int, sceNetResolverStartAton, int rid, const SceNetInAddr *addr, char *ho
 EXPORT(int, sceNetResolverStartNtoa, int rid, const char *hostname, SceNetInAddr *addr, int timeout, int retry, int flags) {
     TRACY_FUNC(sceNetResolverStartNtoa, rid, hostname, addr, timeout, retry, flags);
     struct hostent *resolved = gethostbyname(hostname);
+    LOG_INFO("NETLOG resolve '{}' -> {}", hostname ? hostname : "(null)", resolved ? "ok" : "FAILED");
     if (resolved == nullptr) {
         memset(addr, 0, sizeof(*addr));
         RET_NET_ERRNO(SCE_NET_ERROR_EHOSTUNREACH);
