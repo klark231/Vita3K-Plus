@@ -156,13 +156,35 @@ static bool should_abort(int abort_flags, int flags) {
     return (abort_flags & flags) != 0;
 }
 
+#ifndef _WIN32
+#include <cerrno>
+#include <sys/select.h>
+#endif
+
 int PosixSocket::connect(const SceNetSockaddr *addr, unsigned int addrlen) {
     if (should_abort(abort_flags, SCE_NET_SOCKET_ABORT_FLAG_SND_PRESERVATION))
         return SCE_NET_ERROR_EINTR;
 
     sockaddr addr2{};
     convertSceSockaddrToPosix(addr, &addr2);
-    const auto res = ::connect(sock, &addr2, sizeof(sockaddr_in));
+    auto res = ::connect(sock, &addr2, sizeof(sockaddr_in));
+#ifndef _WIN32
+    if (res < 0 && errno == EINPROGRESS) {
+        // Hack: finish the connect here so the game never sends on a half-open socket
+        fd_set wfds;
+        FD_ZERO(&wfds);
+        FD_SET(sock, &wfds);
+        timeval tv{ 10, 0 };
+        if (select(sock + 1, nullptr, &wfds, nullptr, &tv) > 0) {
+            int err = 0;
+            socklen_t len = sizeof(err);
+            if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0)
+                res = 0;
+            else if (err != 0)
+                errno = err;
+        }
+    }
+#endif
 
     if (abort_pending(is_aborted))
         return SCE_NET_ERROR_EINTR;
